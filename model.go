@@ -242,6 +242,37 @@ func (m *Model) handleLeftPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.resetOutputScroll()
 		}
 
+	case "home":
+		if m.cursor > 0 {
+			m.cursor = 0
+			m.resetOutputScroll()
+		}
+
+	case "end":
+		if m.cursor < len(m.filteredList)-1 {
+			m.cursor = len(m.filteredList) - 1
+			m.resetOutputScroll()
+		}
+
+	case "pgup":
+		pageSize := m.height - 3 // Account for borders and status bar
+		m.cursor -= pageSize
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+		m.resetOutputScroll()
+
+	case "pgdown":
+		pageSize := m.height - 3 // Account for borders and status bar
+		m.cursor += pageSize
+		if m.cursor >= len(m.filteredList) {
+			m.cursor = len(m.filteredList) - 1
+		}
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+		m.resetOutputScroll()
+
 	case "/":
 		m.filterMode = true
 		m.filterText = ""
