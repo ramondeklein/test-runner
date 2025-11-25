@@ -1,0 +1,13 @@
+# Build artifacts
+test-runner
+*.exe
+
+# Log files
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# Debug binaries
+__debug_bin*
