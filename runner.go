@@ -57,7 +57,7 @@ type TestRunner struct {
 	logDir      string
 	maxParallel int
 	running     int
-	queue       []*TestItem
+	tests       *[]*TestItem // Reference to the test list
 	mu          sync.Mutex
 	onUpdate    func()
 }
@@ -76,6 +76,13 @@ func (r *TestRunner) SetUpdateCallback(cb func()) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.onUpdate = cb
+}
+
+// SetTestList sets the reference to the test list
+func (r *TestRunner) SetTestList(tests *[]*TestItem) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.tests = tests
 }
 
 // SetMaxParallel updates the max parallel limit
@@ -106,10 +113,21 @@ func (r *TestRunner) GetRunningCount() int {
 func (r *TestRunner) GetQueuedCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return len(r.queue)
+	if r.tests == nil {
+		return 0
+	}
+	count := 0
+	for _, item := range *r.tests {
+		item.mu.Lock()
+		if item.Status == StatusQueued {
+			count++
+		}
+		item.mu.Unlock()
+	}
+	return count
 }
 
-// QueueTest adds a test to the run queue
+// QueueTest marks a test as queued for execution
 func (r *TestRunner) QueueTest(item *TestItem) {
 	item.mu.Lock()
 	if item.Status == StatusRunning || item.Status == StatusQueued {
@@ -126,10 +144,6 @@ func (r *TestRunner) QueueTest(item *TestItem) {
 	item.LogFile = filepath.Join(r.logDir, logFileName)
 	item.mu.Unlock()
 
-	r.mu.Lock()
-	r.queue = append(r.queue, item)
-	r.mu.Unlock()
-
 	r.notifyUpdate()
 	r.tryStartNext()
 }
@@ -141,15 +155,7 @@ func (r *TestRunner) StopTest(item *TestItem) {
 
 	switch item.Status {
 	case StatusQueued:
-		// Remove from queue
-		r.mu.Lock()
-		for i, q := range r.queue {
-			if q == item {
-				r.queue = append(r.queue[:i], r.queue[i+1:]...)
-				break
-			}
-		}
-		r.mu.Unlock()
+		// Just reset status to idle
 		item.Status = StatusIdle
 		r.notifyUpdate()
 
@@ -161,16 +167,35 @@ func (r *TestRunner) StopTest(item *TestItem) {
 	}
 }
 
-// tryStartNext attempts to start the next queued test
+// tryStartNext attempts to start the next queued test from the list
 func (r *TestRunner) tryStartNext() {
 	r.mu.Lock()
-	for r.running < r.maxParallel && len(r.queue) > 0 {
-		item := r.queue[0]
-		r.queue = r.queue[1:]
-		r.running++
-		go r.runTest(item)
+	defer r.mu.Unlock()
+
+	if r.tests == nil {
+		return
 	}
-	r.mu.Unlock()
+
+	// Scan the list in order and start queued tests
+	for r.running < r.maxParallel {
+		var nextItem *TestItem
+		for _, item := range *r.tests {
+			item.mu.Lock()
+			if item.Status == StatusQueued {
+				nextItem = item
+				item.mu.Unlock()
+				break
+			}
+			item.mu.Unlock()
+		}
+
+		if nextItem == nil {
+			break
+		}
+
+		r.running++
+		go r.runTest(nextItem)
+	}
 }
 
 // runTest executes a single test

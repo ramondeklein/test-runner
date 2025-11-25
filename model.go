@@ -141,6 +141,9 @@ func NewModel(testDir string, logDir string) (*Model, error) {
 		sortMode:     SortByName,
 	}
 
+	// Set the test list reference on the runner
+	runner.SetTestList(&m.filteredList)
+
 	return m, nil
 }
 
