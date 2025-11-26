@@ -11,6 +11,7 @@ import (
 func main() {
 	// Parse command line flags
 	logDir := flag.String("log-dir", "", "Directory for log files (default: ~/.test-runner/<hash>)")
+	testTimeout := flag.Duration("test-timeout", 0, "Timeout for each test (default: 30m)")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [test-directory]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
@@ -36,7 +37,7 @@ func main() {
 	}
 
 	// Create the model
-	model, err := NewModel(testDir, *logDir)
+	model, err := NewModel(testDir, *logDir, *testTimeout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

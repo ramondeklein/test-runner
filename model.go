@@ -101,7 +101,7 @@ func getDefaultLogDir(testDir string) (string, error) {
 }
 
 // NewModel creates a new application model
-func NewModel(testDir string, logDir string) (*Model, error) {
+func NewModel(testDir string, logDir string, testTimeout time.Duration) (*Model, error) {
 	tests, err := DiscoverTests(testDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover tests: %w", err)
@@ -128,7 +128,7 @@ func NewModel(testDir string, logDir string) (*Model, error) {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
 
-	runner := NewTestRunner(testDir, logDir, 3) // Default parallelism
+	runner := NewTestRunner(testDir, logDir, 3, testTimeout) // Default parallelism
 
 	m := &Model{
 		tests:        items,

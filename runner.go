@@ -21,6 +21,8 @@ const (
 	StatusFailed
 )
 
+var defaultTestTimeout = 30 * time.Minute
+
 // TestItem represents a test in the list with its current state
 type TestItem struct {
 	Info       TestInfo
@@ -56,6 +58,7 @@ type TestRunner struct {
 	testDir     string
 	logDir      string
 	maxParallel int
+	testTimeout time.Duration
 	running     int
 	tests       *[]*TestItem // Reference to the test list
 	mu          sync.Mutex
@@ -63,11 +66,15 @@ type TestRunner struct {
 }
 
 // NewTestRunner creates a new test runner
-func NewTestRunner(testDir string, logDir string, maxParallel int) *TestRunner {
+func NewTestRunner(testDir string, logDir string, maxParallel int, testTimeout time.Duration) *TestRunner {
+	if testTimeout <= 0 {
+		testTimeout = defaultTestTimeout
+	}
 	return &TestRunner{
 		testDir:     testDir,
 		logDir:      logDir,
 		maxParallel: maxParallel,
+		testTimeout: testTimeout,
 	}
 }
 
@@ -231,7 +238,7 @@ func (r *TestRunner) runTest(item *TestItem) {
 	}
 
 	// Run the test
-	cmd := exec.CommandContext(ctx, "go", "test", "-v", "-run", fmt.Sprintf("^%s$", item.Info.Name), pkgPath)
+	cmd := exec.CommandContext(ctx, "go", "test", "-timeout", r.testTimeout.String(), "-v", "-run", fmt.Sprintf("^%s$", item.Info.Name), pkgPath)
 	cmd.Dir = r.testDir
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
